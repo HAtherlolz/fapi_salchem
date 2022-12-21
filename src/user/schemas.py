@@ -23,7 +23,7 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
-    is_active: bool | None
+    is_active: bool = False
     date_created: datetime | None
     nickname: str | None
     units: list[Unit] = []

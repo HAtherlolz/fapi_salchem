@@ -24,7 +24,7 @@ async def get_users(skip: int = 0, limit: int = 100):
 async def create_user(user: schemas.UserCreate):
     hashed_password = get_password_hash(user.password)
     time_now = datetime.utcnow()
-    db_user = models.users.insert().values(email=user.email, password=hashed_password, date_created=time_now, is_active=True)
+    db_user = models.users.insert().values(email=user.email, password=hashed_password, date_created=time_now)
     user_id = await database.execute(db_user)
     return schemas.User(**user.dict(), id=user_id)
 
