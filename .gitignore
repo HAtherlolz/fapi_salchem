@@ -1,0 +1,11 @@
+env/
+venv/
+.vscode/
+
+.env
+.env.nginx
+__pycache__/
+.coverage
+locustfile.py
+
+*.pyc
