@@ -1,17 +1,19 @@
-from sqlalchemy import Boolean, Column, Integer, String
-from sqlalchemy.orm import relationship
+from datetime import datetime
 
-from config.database import Base, engine
-from src.units import models
+from sqlalchemy import Table, Boolean, Column, Integer, String, DateTime
+
+from config.database import engine, metadata
 
 
-class User(Base):
-    __tablename__ = 'users'
+users = Table(
+    'users',
+    metadata,
+    Column("id", Integer, primary_key=True, index=True),
+    Column("email", String, unique=True, index=True),
+    Column("nickname", String),
+    Column("password", String),
+    Column("is_active", Boolean, default=False),
+    Column("date_created", DateTime, default=datetime.utcnow)
+)
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    password = Column(String)
-    is_active = Column(Boolean, default=False)
-
-    units = relationship("models.Unit", back_populates="owner")
 

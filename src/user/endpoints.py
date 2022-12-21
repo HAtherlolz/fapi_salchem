@@ -1,42 +1,61 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from datetime import timedelta
 
-from . import models, schemas
-from config.database import get_db
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+from . import schemas, crud
+from config.settings import Settings
+from .jwt_auth import authenticate_user, create_access_token, get_current_active_user
 
 
 router = APIRouter()
-
-
-def get_user(db: Session, user_id: int):
-    return db.query(models.User).filter(models.User.id == user_id).first()
-
-
-@router.get("/users/", response_model=list[schemas.User])
-def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    users = db.query(models.User).all()
-    return users
+settings = Settings()
 
 
 @router.post("/users/", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    print(user)
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+async def create_user(user: schemas.UserCreate):
+    db_user = await crud.get_user_by_email(email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    fake_hashed_password = user.password + "notreallyhashed"
-    db_user = models.User(email=user.email, password=fake_hashed_password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    return await crud.create_user(user=user)
+
+
+@router.get("/users/", response_model=list[schemas.User])
+async def users_list(skip: int = 0, limit: int = 100):
+    return await crud.get_users(skip=skip, limit=limit)
+
+
+@router.get("/users/{user_id}", response_model=schemas.User)
+async def read_user(user_id: int):
+    db_user = await crud.get_user(user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
 
+@router.delete("/users/{user_id}", status_code=204)
+async def delete_user(user_id: int):
+    db_user = await crud.get_user(user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return await crud.delete_user(user_id=user_id)
 
 
-def get_user_by_email(db: Session, email: str):
-    return db.query(models.User).filter(models.User.email == email).first()
+@router.post("/auth/user/jwt/", response_model=schemas.Token)
+async def login_for_access_token(form_data: schemas.UserCreate = Depends()):
+    user = await authenticate_user(form_data.email, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-def get_users(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.User).offset(skip).limit(limit).all()
+@router.get("/users/me/", response_model=schemas.User)
+async def users_me(current_user: schemas.User = Depends(get_current_active_user)):
+    return current_user

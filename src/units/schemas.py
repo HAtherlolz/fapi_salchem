@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class UnitBase(BaseModel):
     title: str
-    description: Union[str, None] = None
+    description: str | None = None
 
 
 class UnitCreate(UnitBase):
